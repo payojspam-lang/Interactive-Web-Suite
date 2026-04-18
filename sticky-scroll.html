@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sticky Scroll - Interactive Suite</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        background: "hsl(var(--background))",
+                        foreground: "hsl(var(--foreground))",
+                        border: "hsl(var(--border))",
+                        secondary: "hsl(var(--secondary))",
+                        primary: "hsl(var(--primary))",
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+        
+        :root {
+            --background: 0 0% 0%;
+            --foreground: 0 0% 98%;
+            --border: 0 0% 14.9%;
+            --secondary: 0 0% 14.9%;
+            --primary: 217.2 91.2% 59.8%;
+        }
+        body { font-family: 'Inter', sans-serif; background-color: black; color: white; margin: 0; }
+        
+        .interactive-nav {
+            position: fixed;
+            top: 1rem;
+            left: 1rem;
+            z-index: 50;
+            display: flex;
+            gap: 1rem;
+        }
+        .nav-btn {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            text-decoration: none;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+        .nav-btn:hover { background: rgba(255,255,255,0.2); }
+    </style>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "react": "https://esm.sh/react@18.2.0",
+            "react/jsx-runtime": "https://esm.sh/react@18.2.0/jsx-runtime",
+            "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+            "framer-motion": "https://esm.sh/framer-motion@10.16.1?deps=react@18.2.0,react-dom@18.2.0"
+        }
+    }
+    </script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/@studio-freight/lenis@1.0.35/dist/lenis.min.js"></script>
+</head>
+<body class="antialiased w-full text-white bg-black">
+
+<div class="interactive-nav">
+    <a href="/" class="nav-btn">← Back to Hub</a>
+</div>
+
+<div id="root" class="w-full"></div>
+
+<script type="text/babel" data-type="module">
+import React, { useState, useEffect, useRef } from "react";
+import { createRoot } from "react-dom/client";
+import { motion, useScroll, useTransform, useMotionValueEvent, AnimatePresence } from "framer-motion";
+
+const StickyScroll = ({ content }) => {
+  const [activeCard, setActiveCard] = useState(0);
+  const ref = useRef(null);
+  
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ["start start", "end end"]
+  });
+
+  const cardsLength = content.length;
+
+  useMotionValueEvent(scrollYProgress, "change", (latest) => {
+    const rawIndex = latest * cardsLength;
+    const clampIndex = Math.min(
+        Math.max(0, Math.floor(rawIndex)),
+        cardsLength - 1
+    );
+    if (clampIndex !== activeCard) {
+      setActiveCard(clampIndex);
+    }
+  });
+
+  return (
+    <motion.div
+      className="w-full flex justify-center relative gap-10 p-10"
+      ref={ref}
+      style={{ height: `${content.length * 100}vh` }}
+    >
+      {/* Left side text */}
+      <div className="relative flex items-start px-4 w-1/2">
+        <div className="max-w-xl w-full sticky top-40 flex flex-col">
+          {content.map((item, index) => (
+            <div key={item.title + index} className="my-20 first:mt-0">
+              <motion.h2
+                animate={{
+                  opacity: activeCard === index ? 1 : 0.2,
+                  scale: activeCard === index ? 1 : 0.97,
+                }}
+                transition={{ duration: 0.4 }}
+                className="text-3xl font-bold text-slate-100 mb-4"
+              >
+                {item.title}
+              </motion.h2>
+              <motion.p
+                animate={{
+                  opacity: activeCard === index ? 1 : 0.15,
+                }}
+                transition={{ duration: 0.4 }}
+                className="text-lg text-slate-400 max-w-sm mt-4 leading-relaxed"
+              >
+                {item.description}
+              </motion.p>
+            </div>
+          ))}
+        </div>
+      </div>
+      
+      {/* Sticky Right Side Content */}
+      <div className="w-1/2 hidden md:block">
+        <div className="sticky top-40 h-[500px] rounded-2xl overflow-hidden border border-white/10 shadow-2xl shadow-blue-500/10">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeCard}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 1.05 }}
+              transition={{ duration: 0.5, ease: "easeInOut" }}
+              className="w-full h-full"
+            >
+              {content[activeCard].content}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+const content = [
+  {
+    title: "Seamless Collaboration",
+    description: "Work together in real time with your team, clients, and stakeholders. Hover over elements, add comments, and push changes dynamically.",
+    content: (
+        <img 
+            src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2070&auto=format&fit=crop" 
+            alt="Collaboration" 
+            className="w-full h-full object-cover"
+        />
+    )
+  },
+  {
+    title: "Advanced Real Time Metrics",
+    description: "Keep track of active sessions, user geography, and bounce rates with granular detail in the dashboard view. Track user engagement seamlessly.",
+    content: (
+        <img 
+            src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=2015&auto=format&fit=crop" 
+            alt="Metrics" 
+            className="w-full h-full object-cover"
+        />
+    )
+  },
+  {
+    title: "Version Control Built-in",
+    description: "Experience peace of mind knowing all your changes are logged completely. Roll back to any previous state in a matter of seconds.",
+    content: (
+        <img 
+            src="https://images.unsplash.com/photo-1618477247222-acaff2c6a463?q=80&w=2070&auto=format&fit=crop" 
+            alt="Version Control" 
+            className="w-full h-full object-cover"
+        />
+    )
+  },
+  {
+    title: "Ready to Launch?",
+    description: "Execute deployments to staging and production simultaneously with our robust pipeline integrations. Fast, reliable, and entirely automated.",
+    content: (
+        <img 
+            src="https://images.unsplash.com/photo-1504384308090-c894fdcc538d?q=80&w=2070&auto=format&fit=crop" 
+            alt="Deploy" 
+            className="w-full h-full object-cover"
+        />
+    )
+  }
+];
+
+function App() {
+  useEffect(() => {
+    const lenis = new window.Lenis({
+      duration: 1.2,
+      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      direction: 'vertical',
+      gestureDirection: 'vertical',
+      smooth: true,
+      mouseMultiplier: 1,
+      smoothTouch: false,
+      touchMultiplier: 2,
+      infinite: false,
+    });
+
+    lenis.start();
+    function raf(time) {
+      lenis.raf(time);
+      requestAnimationFrame(raf);
+    }
+    requestAnimationFrame(raf);
+    
+    return () => {
+        lenis.destroy();
+    }
+  }, []);
+
+  return (
+    <div className="w-full relative flex flex-col items-center pb-32">
+        <div className="w-full h-[50vh] flex flex-col justify-center items-center">
+            <h1 className="text-5xl font-bold tracking-tight mb-4">Sticky Scroll Reveal</h1>
+            <p className="text-gray-400 text-lg">Scroll down to see the effect in action.</p>
+        </div>
+        
+        <div className="max-w-6xl w-full mx-auto relative">
+            <StickyScroll content={content} />
+        </div>
+
+        <div className="w-full h-[30vh] flex flex-col justify-end items-center pb-20">
+            <p className="text-gray-500 text-sm tracking-widest uppercase">End of Scroll Area</p>
+        </div>
+    </div>
+  );
+}
+
+const root = createRoot(document.getElementById("root"));
+root.render(<App />);
+</script>
+</body>
+</html>

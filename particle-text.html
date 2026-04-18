@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Particle Text — 3D Interactive Particle Engine</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            overflow: hidden;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        #ui {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            max-width: 600px;
+            z-index: 10;
+        }
+        input {
+            width: 100%;
+            padding: 15px 25px;
+            font-size: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 30px;
+            color: #fff;
+            outline: none;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+        }
+        input:focus {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.4);
+            box-shadow: 0 10px 40px rgba(0, 255, 255, 0.2);
+        }
+        input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+        #actions {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            gap: 15px;
+            z-index: 20;
+        }
+        .action-btn {
+            padding: 10px 20px;
+            font-size: 14px;
+            font-family: inherit;
+            font-weight: bold;
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            cursor: pointer;
+            text-decoration: none;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+        }
+        .action-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.5);
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div id="actions">
+        <a href="index.html" class="action-btn">⌂ Home</a>
+        <button id="copy-btn" class="action-btn">Copy Code</button>
+        <button id="copy-prompt-btn" class="action-btn">Copy Prompt</button>
+    </div>
+    <canvas id="canvas"></canvas>
+    <div id="ui">
+        <input type="text" id="input" placeholder="Type to morph..." autocomplete="off">
+    </div>
+
+    <script>
+        document.getElementById('copy-btn').addEventListener('click', () => {
+            const btn = document.getElementById('copy-btn');
+            fetch(window.location.href).then(r => r.text()).then(code => {
+                navigator.clipboard.writeText(code);
+                btn.textContent = 'Copied!';
+                setTimeout(() => btn.textContent = 'Copy Code', 2000);
+            });
+        });
+
+        document.getElementById('copy-prompt-btn').addEventListener('click', () => {
+            const btn = document.getElementById('copy-prompt-btn');
+            const prompt = "Create a 3D Interactive Particle Engine using vanilla HTML Canvas and Float32Arrays. Implement a rotating 10,000 particle sphere that morphs into typed text from an off-screen canvas. Include mouse kinetic repulsion and a click reset.";
+            navigator.clipboard.writeText(prompt);
+            btn.textContent = 'Copied!';
+            setTimeout(() => btn.textContent = 'Copy Prompt', 2000);
+        });
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const input = document.getElementById('input');
+
+        let cw = window.innerWidth;
+        let ch = window.innerHeight;
+        let baseDim = Math.min(cw, ch);
+
+        function resize() {
+            cw = window.innerWidth;
+            ch = window.innerHeight;
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = cw * dpr;
+            canvas.height = ch * dpr;
+            ctx.scale(dpr, dpr);
+            baseDim = Math.min(cw, ch);
+        }
+
+        window.addEventListener('resize', () => {
+            resize();
+            if (appState === 0) {
+                setSphereTargets();
+            } else {
+                sampleText(input.value);
+            }
+        });
+
+        // Constants & Arrays
+        const N = 10000;
+        const px = new Float32Array(N);
+        const py = new Float32Array(N);
+        const pz = new Float32Array(N);
+        const vx = new Float32Array(N);
+        const vy = new Float32Array(N);
+        const vz = new Float32Array(N);
+        const tx = new Float32Array(N);
+        const ty = new Float32Array(N);
+        const tz = new Float32Array(N);
+        const ox = new Float32Array(N);
+        const oy = new Float32Array(N);
+        const oz = new Float32Array(N);
+        const hue = new Float32Array(N);
+        const phase = new Float32Array(N);
+
+        let appState = 0; // 0 = sphere, 1 = text
+
+        // Sphere Generator
+        function setSphereTargets() {
+            const R = baseDim > 1200 ? baseDim * 0.28 : baseDim * 0.42;
+            const phi = Math.PI * (3 - Math.sqrt(5)); 
+            for (let i = 0; i < N; i++) {
+                const y = 1 - (i / (N - 1)) * 2; 
+                const radiusAtY = Math.sqrt(1 - y * y);
+                const theta = phi * i;
+                
+                ox[i] = Math.cos(theta) * radiusAtY * R;
+                oy[i] = y * R;
+                oz[i] = Math.sin(theta) * radiusAtY * R;
+                
+                tx[i] = ox[i];
+                ty[i] = oy[i];
+                tz[i] = oz[i];
+            }
+        }
+
+        function initParticles() {
+            setSphereTargets();
+            for (let i = 0; i < N; i++) {
+                px[i] = (Math.random() - 0.5) * cw;
+                py[i] = (Math.random() - 0.5) * ch;
+                pz[i] = (Math.random() - 0.5) * baseDim;
+                
+                hue[i] = (i / N) * 360; 
+                phase[i] = Math.random() * Math.PI * 2;
+            }
+        }
+
+        initParticles();
+
+        // Offscreen Text Rendering
+        const offCanvas = document.createElement("canvas");
+        const offCtx = offCanvas.getContext("2d", { willReadFrequently: true });
+
+        function wrapText(textCtx, text, maxWidth) {
+            const words = text.split(' ');
+            let line = '';
+            let lines = [];
+
+            for(let n = 0; n < words.length; n++) {
+                const testLine = line + words[n] + ' ';
+                const metrics = textCtx.measureText(testLine);
+                const testWidth = metrics.width;
+                if (testWidth > maxWidth && n > 0) {
+                    lines.push(line.trim());
+                    line = words[n] + ' ';
+                } else {
+                    line = testLine;
+                }
+            }
+            lines.push(line.trim());
+            return lines;
+        }
+
+        function sampleText(text) {
+            if (text.trim() === "") {
+                appState = 0;
+                setSphereTargets();
+                return;
+            }
+            appState = 1;
+
+            offCanvas.width = cw;
+            offCanvas.height = ch;
+            
+            offCtx.clearRect(0, 0, cw, ch);
+            
+            // Adaptive font scaling based on word count/viewport 
+            const maxChars = Math.max(5, Math.floor(cw / 50));
+            let fontSize = Math.min(cw * 0.8 / Math.min(text.length, maxChars), cw / 4);
+            if (cw > 1200) fontSize = Math.min(fontSize, 200);
+            if (fontSize < 40) fontSize = 40;
+
+            offCtx.font = `900 ${fontSize}px "Arial Black", Arial, sans-serif`;
+            offCtx.fillStyle = "white";
+            offCtx.textAlign = "center";
+            offCtx.textBaseline = "middle";
+            
+            const maxWidth = cw * 0.9;
+            const lines = wrapText(offCtx, text, maxWidth);
+            
+            const lineHeight = fontSize * 1.1;
+            const totalHeight = lines.length * lineHeight;
+            let startY = (ch - totalHeight) / 2 + fontSize * 0.5;
+            
+            for(let i=0; i<lines.length; i++) {
+                offCtx.fillText(lines[i], cw / 2, startY + i * lineHeight);
+            }
+
+            const imgData = offCtx.getImageData(0, 0, cw, ch).data;
+            const validPixels = [];
+            
+            // Sample alpha > 120
+            const jump = Math.max(1, Math.floor(baseDim / 600));
+            for (let y = 0; y < ch; y += jump) {
+                for (let x = 0; x < cw; x += jump) {
+                    const idx = (y * cw + x) * 4;
+                    if (imgData[idx+3] > 120) {
+                        validPixels.push({x, y});
+                    }
+                }
+            }
+
+            // Fisher-Yates shuffle targets
+            for(let i = validPixels.length - 1; i > 0; i--){
+                const j = Math.floor(Math.random() * (i + 1));
+                [validPixels[i], validPixels[j]] = [validPixels[j], validPixels[i]];
+            }
+            
+            // Assign new targets with sub-pixel jitter
+            for(let i=0; i<N; i++) {
+                if(validPixels.length === 0) {
+                    tx[i] = 0; ty[i] = 0; tz[i] = 0;
+                    continue;
+                }
+                const p = validPixels[i % validPixels.length];
+                tx[i] = p.x - cw / 2 + (Math.random() - 0.5) * 0.8;
+                ty[i] = p.y - ch / 2 + (Math.random() - 0.5) * 0.8;
+                tz[i] = 0;
+            }
+        }
+
+        // Input Handling
+        input.addEventListener('input', (e) => {
+            sampleText(e.target.value);
+        });
+        
+        window.addEventListener('dblclick', () => {
+            input.value = "";
+            sampleText("");
+        });
+
+        // Mouse Interactions
+        let mx = -9999, my = -9999;
+        let isHovering = false;
+
+        window.addEventListener('mousemove', (e) => {
+            mx = e.clientX;
+            my = e.clientY;
+            isHovering = true;
+            
+            // Reset hover state if too far off text area
+            clearTimeout(window.hoverTimeout);
+            window.hoverTimeout = setTimeout(() => {
+                isHovering = false;
+            }, 500);
+        });
+
+        resize();
+
+        // Main Loop
+        let rotY = 0;
+        let t = 0;
+
+        function loop() {
+            requestAnimationFrame(loop);
+            t++;
+
+            ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+            ctx.fillRect(0, 0, cw, ch);
+            
+            if (appState === 0) {
+                rotY += 0.006;
+            } else {
+                rotY %= (Math.PI * 2);
+                if (rotY > Math.PI) rotY -= Math.PI * 2;
+                if (rotY < -Math.PI) rotY += Math.PI * 2;
+                rotY += (0 - rotY) * 0.08; 
+            }
+
+            const cx = cw / 2;
+            const cy = ch / 2;
+            const sp = appState === 0 ? 0.02 : 0.022;
+
+            const mdx = mx - cx;
+            const mdy = my - cy;
+
+            const sinR = Math.sin(rotY);
+            const cosR = Math.cos(rotY);
+
+            const FOV = 550;
+            const CAMERA_Z = 600;
+
+            for (let i = 0; i < N; i++) {
+                let curTx = tx[i];
+                let curTy = ty[i];
+                let curTz = tz[i];
+
+                const jit = appState === 0 ? 1.8 : 0;
+                if (jit > 0) {
+                    curTx += Math.cos(phase[i] + t * 0.05) * jit;
+                    curTy += Math.sin(phase[i] + t * 0.05) * jit;
+                    curTz += Math.sin(phase[i] + t * 0.05) * jit;
+                }
+
+                vx[i] += (curTx - px[i]) * sp;
+                vy[i] += (curTy - py[i]) * sp;
+                vz[i] += (curTz - pz[i]) * sp;
+
+                vx[i] *= 0.82;
+                vy[i] *= 0.82;
+                vz[i] *= 0.82;
+
+                px[i] += vx[i];
+                py[i] += vy[i];
+                pz[i] += vz[i];
+
+                let wx = px[i] * cosR - pz[i] * sinR;
+                let wy = py[i];
+                let wz = px[i] * sinR + pz[i] * cosR;
+                
+                if (appState === 1 && isHovering) {
+                    const projX = (wx * FOV) / (wz + CAMERA_Z);
+                    const projY = (wy * FOV) / (wz + CAMERA_Z);
+                    
+                    const dx = projX - mdx;
+                    const dy = projY - mdy;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    
+                    if (dist < 100) {
+                        const force = 8 * (1 - dist / 100) * 5;
+                        vx[i] += (dx / dist) * force;
+                        vy[i] += (dy / dist) * force;
+                        vz[i] += 0.5 * force; 
+                    }
+                }
+
+                const scale = FOV / (wz + CAMERA_Z);
+                if (scale > 0) {
+                    const sx = wx * scale + cx;
+                    const sy = wy * scale + cy;
+
+                    let h, s, l;
+                    if (appState === 0) {
+                        h = (hue[i] + t) % 360;  
+                        s = 85; 
+                        l = 65;
+                    } else {
+                        h = 190; 
+                        s = 90; 
+                        l = 65; 
+                    }
+                    ctx.fillStyle = `hsl(${Math.floor(h)}, ${s}%, ${l}%)`;
+                    
+                    const psize = Math.max(0.5, 1.8 * scale);
+                    ctx.fillRect(sx, sy, psize, psize);
+                }
+            }
+        }
+
+        loop();
+    </script>
+</body>
+</html>

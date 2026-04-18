@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dotted Surface — Interaction Suite</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Babel for in-browser transpilation -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.2.0",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+        "three": "https://esm.sh/three@0.160.0",
+        "next-themes": "https://esm.sh/next-themes@0.2.1",
+        "@/lib/utils": "./lib/utils.js",
+        "@/components/ui/dotted-surface": "./components/ui/dotted-surface.tsx"
+      }
+    }
+    </script>
+    
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; font-family: system-ui, -apple-system, sans-serif; }
+        #actions { position: absolute; top: 20px; left: 20px; display: flex; gap: 15px; z-index: 50; }
+        .action-btn { padding: 10px 20px; font-size: 14px; font-weight: bold; color: #fff; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 20px; cursor: pointer; text-decoration: none; backdrop-filter: blur(10px); transition: all 0.3s ease; box-sizing: border-box; }
+        .action-btn:hover { background: rgba(255, 255, 255, 0.2); border-color: rgba(255, 255, 255, 0.5); box-shadow: 0 0 15px rgba(0, 255, 255, 0.3); }
+    </style>
+
+    <script type="text/javascript">
+        // Basic map mock for lib/utils if it is requested in the browser explicitly
+        window.cn = function(...classes) {
+            return classes.filter(Boolean).join(' ');
+        };
+    </script>
+</head>
+<body>
+    <div id="actions">
+        <a href="index.html" class="action-btn">⌂ Home</a>
+        <button id="copy-btn" class="action-btn">Copy Component Code</button>
+    </div>
+    
+    <div id="root" class="w-full h-full"></div>
+
+    <script type="text/babel" data-type="module">
+        import React, { useEffect, useRef, useState } from "react";
+        import { createRoot } from "react-dom/client";
+        import * as THREE from "three";
+        // Mocking next-theme context
+        const ThemeContext = React.createContext({ theme: 'dark' });
+        const useTheme = () => React.useContext(ThemeContext);
+
+        const cn = (...classes) => classes.filter(Boolean).join(' ');
+
+        // The DottedSurface component implementation injected locally since no bundler exists
+        function DottedSurface({ className, children, ...props }) {
+            const { theme } = useTheme();
+
+            const containerRef = useRef(null);
+            const sceneRef = useRef(null);
+
+            useEffect(() => {
+                if (!containerRef.current) return;
+
+                const SEPARATION = 150;
+                const AMOUNTX = 40;
+                const AMOUNTY = 60;
+
+                const scene = new THREE.Scene();
+                scene.fog = new THREE.Fog(0xffffff, 2000, 10000);
+
+                const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 10000);
+                camera.position.set(0, 355, 1220);
+
+                const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+                renderer.setPixelRatio(window.devicePixelRatio);
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.setClearColor(scene.fog.color, 0);
+
+                containerRef.current.appendChild(renderer.domElement);
+
+                const particles = [];
+                const positions = [];
+                const colors = [];
+
+                const geometry = new THREE.BufferGeometry();
+
+                for (let ix = 0; ix < AMOUNTX; ix++) {
+                    for (let iy = 0; iy < AMOUNTY; iy++) {
+                        const x = ix * SEPARATION - (AMOUNTX * SEPARATION) / 2;
+                        const y = 0; 
+                        const z = iy * SEPARATION - (AMOUNTY * SEPARATION) / 2;
+
+                        positions.push(x, y, z);
+                        if (theme === 'dark') {
+                            colors.push(0.8, 0.8, 0.8);
+                        } else {
+                            colors.push(0, 0, 0);
+                        }
+                    }
+                }
+
+                geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+                geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+                const material = new THREE.PointsMaterial({
+                    size: 8,
+                    vertexColors: true,
+                    transparent: true,
+                    opacity: 0.8,
+                    sizeAttenuation: true,
+                });
+
+                const points = new THREE.Points(geometry, material);
+                scene.add(points);
+
+                let count = 0;
+                let animationId;
+
+                const animate = () => {
+                    animationId = requestAnimationFrame(animate);
+
+                    const positionAttribute = geometry.attributes.position;
+                    const positions = positionAttribute.array;
+
+                    let i = 0;
+                    for (let ix = 0; ix < AMOUNTX; ix++) {
+                        for (let iy = 0; iy < AMOUNTY; iy++) {
+                            const index = i * 3;
+                            positions[index + 1] = Math.sin((ix + count) * 0.3) * 50 + Math.sin((iy + count) * 0.5) * 50;
+                            i++;
+                        }
+                    }
+
+                    positionAttribute.needsUpdate = true;
+                    renderer.render(scene, camera);
+                    count += 0.1;
+                };
+
+                const handleResize = () => {
+                    camera.aspect = window.innerWidth / window.innerHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+                };
+
+                window.addEventListener('resize', handleResize);
+                animate();
+
+                sceneRef.current = { scene, camera, renderer, particles: [points], animationId, count };
+
+                return () => {
+                    window.removeEventListener('resize', handleResize);
+                    if (sceneRef.current) {
+                        cancelAnimationFrame(sceneRef.current.animationId);
+                        sceneRef.current.scene.traverse((object) => {
+                            if (object instanceof THREE.Points) {
+                                object.geometry.dispose();
+                                if (Array.isArray(object.material)) {
+                                    object.material.forEach((mat) => mat.dispose());
+                                } else {
+                                    object.material.dispose();
+                                }
+                            }
+                        });
+                        sceneRef.current.renderer.dispose();
+                        if (containerRef.current && sceneRef.current.renderer.domElement) {
+                            containerRef.current.removeChild(sceneRef.current.renderer.domElement);
+                        }
+                    }
+                };
+            }, [theme]);
+
+            return (
+                <div ref={containerRef} className={cn('pointer-events-none fixed inset-0', className)} {...props}>
+                    {children}
+                </div>
+            );
+        }
+
+        export default function DemoOne() {
+            return (
+                <DottedSurface className="w-full h-full text-white">
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-auto">
+                        <h1 className="font-mono text-5xl font-bold tracking-tight text-white drop-shadow-[0_4px_4px_rgba(0,0,0,0.8)]">Dotted Surface</h1>
+                    </div>
+                </DottedSurface>
+            );
+        }
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<DemoOne />);
+        
+        document.getElementById('copy-btn').addEventListener('click', () => {
+            const btn = document.getElementById('copy-btn');
+            fetch('components/ui/dotted-surface.tsx').then(r => r.text()).then(code => {
+                navigator.clipboard.writeText(code);
+                btn.textContent = 'Copied Component!';
+                setTimeout(() => btn.textContent = 'Copy Component Code', 2000);
+            }).catch(e => {
+                btn.textContent = 'Failed';
+            });
+        });
+
+    </script>
+</body>
+</html>

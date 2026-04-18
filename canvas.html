@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas Hero - Interactive Suite</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {}
+            }
+        }
+    </script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800;900&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: black; color: white; margin: 0; overflow: hidden; }
+        
+        .interactive-nav {
+            position: fixed;
+            top: 1rem;
+            left: 1rem;
+            z-index: 50;
+            display: flex;
+            gap: 1rem;
+        }
+        .nav-btn {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            text-decoration: none;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+        .nav-btn:hover { background: rgba(255,255,255,0.2); }
+
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            cursor: crosshair;
+        }
+        
+        .hero-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="antialiased w-full text-white bg-black">
+
+<div class="interactive-nav">
+    <a href="/" class="nav-btn">← Back to Hub</a>
+</div>
+
+<div class="hero-content">
+    <h1 class="text-6xl md:text-8xl font-black mb-4 tracking-tighter mix-blend-difference bg-clip-text text-transparent bg-gradient-to-br from-white to-neutral-400">Dicons Canvas</h1>
+    <p class="text-lg md:text-2xl text-neutral-400 mix-blend-difference">Move your mouse to interact with the spring physics lines.</p>
+</div>
+
+<canvas id="canvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d', { alpha: false });
+    
+    let w, h;
+    let lines = [];
+    const mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2, tx: window.innerWidth / 2, ty: window.innerHeight / 2 };
+    
+    function resize() {
+        w = canvas.width = window.innerWidth;
+        h = canvas.height = window.innerHeight;
+    }
+    
+    window.addEventListener('resize', resize);
+    resize();
+    
+    window.addEventListener('mousemove', (e) => {
+        mouse.tx = e.clientX;
+        mouse.ty = e.clientY;
+    });
+
+    window.addEventListener('touchmove', (e) => {
+        if(e.touches.length > 0) {
+            mouse.tx = e.touches[0].clientX;
+            mouse.ty = e.touches[0].clientY;
+        }
+    });
+    
+    class SpringLine {
+        constructor(x, y, hue) {
+            this.x = x;
+            this.y = y;
+            this.px = x;
+            this.py = y;
+            this.hue = hue;
+            this.history = [];
+            this.maxHistory = 100;
+        }
+        
+        update(targetX, targetY) {
+            // Spring physics
+            const dx = targetX - this.x;
+            const dy = targetY - this.y;
+            
+            this.px = this.x;
+            this.py = this.y;
+            
+            // Lerp towards target
+            this.x += dx * 0.15;
+            this.y += dy * 0.15;
+            
+            this.history.unshift({x: this.x, y: this.y});
+            if (this.history.length > this.maxHistory) {
+                this.history.pop();
+            }
+        }
+        
+        draw(ctx) {
+            if (this.history.length < 2) return;
+            
+            ctx.beginPath();
+            ctx.moveTo(this.history[0].x, this.history[0].y);
+            
+            for (let i = 1; i < this.history.length; i++) {
+                ctx.lineTo(this.history[i].x, this.history[i].y);
+            }
+            
+            ctx.strokeStyle = `hsla(${this.hue}, 80%, 60%, 0.8)`;
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.stroke();
+        }
+    }
+    
+    // Create multiple trailing lines with staggered offsets
+    for (let i = 0; i < 5; i++) {
+        lines.push(new SpringLine(w/2, h/2, i * 40 + 200));
+    }
+    
+    function animate() {
+        // Smooth mouse following
+        mouse.x += (mouse.tx - mouse.x) * 0.2;
+        mouse.y += (mouse.ty - mouse.y) * 0.2;
+        
+        // Dark trail effect
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+        ctx.fillRect(0, 0, w, h);
+        
+        // Update and draw lines
+        lines.forEach((line, i) => {
+            // Add a small offset so they spread out slightly based on velocity
+            const offsetX = Math.sin(Date.now() * 0.002 + i) * 30;
+            const offsetY = Math.cos(Date.now() * 0.002 + i) * 30;
+            
+            // The first line follows the mouse strictly, others follow with slight delay/offset
+            let tx, ty;
+            if (i === 0) {
+                tx = mouse.x;
+                ty = mouse.y;
+            } else {
+                tx = lines[i-1].x + offsetX * 0.5;
+                ty = lines[i-1].y + offsetY * 0.5;
+            }
+            
+            line.update(tx, ty);
+            line.draw(ctx);
+        });
+        
+        requestAnimationFrame(animate);
+    }
+    
+    animate();
+</script>
+</body>
+</html>

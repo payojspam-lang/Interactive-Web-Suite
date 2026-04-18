@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bento Grid - Interactive Suite</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        background: "hsl(var(--background))",
+                        foreground: "hsl(var(--foreground))",
+                        border: "hsl(var(--border))",
+                        secondary: "hsl(var(--secondary))",
+                        primary: "hsl(var(--primary))",
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+        
+        :root {
+            --background: 0 0% 0%;
+            --foreground: 0 0% 98%;
+            --border: 0 0% 14.9%;
+            --secondary: 0 0% 14.9%;
+            --primary: 217.2 91.2% 59.8%;
+        }
+        body { font-family: 'Inter', sans-serif; background-color: black; color: white; margin: 0; min-height: 100vh;}
+        
+        .interactive-nav {
+            position: fixed;
+            top: 1rem;
+            left: 1rem;
+            z-index: 50;
+            display: flex;
+            gap: 1rem;
+        }
+        .nav-btn {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            text-decoration: none;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+        .nav-btn:hover { background: rgba(255,255,255,0.2); }
+        
+        .bg-grid-white {
+            background-size: 40px 40px;
+            background-image: linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+                              linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+        }
+
+    </style>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "react": "https://esm.sh/react@18.2.0",
+            "react/jsx-runtime": "https://esm.sh/react@18.2.0/jsx-runtime",
+            "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+            "framer-motion": "https://esm.sh/framer-motion@10.16.1?deps=react@18.2.0,react-dom@18.2.0"
+        }
+    }
+    </script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="antialiased w-full text-white bg-black bg-grid-white">
+
+<div class="interactive-nav">
+    <a href="/" class="nav-btn">← Back to Hub</a>
+</div>
+
+<div id="root" class="w-full min-h-screen"></div>
+
+<script type="text/babel" data-type="module">
+import React, { useState, useRef, useEffect } from "react";
+import { createRoot } from "react-dom/client";
+import { motion } from "framer-motion";
+
+function GlowHeader({ gradient, icon, title }) {
+  return (
+    <div className={`flex flex-1 w-full h-full min-h-[6rem] rounded-xl overflow-hidden relative ${gradient}`}>
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(255,255,255,0.1),transparent_70%)]"></div>
+      <div className="absolute bottom-4 right-4 text-5xl opacity-20">{icon}</div>
+    </div>
+  );
+}
+
+const features = [
+  {
+    title: "AI Integrations",
+    description: "Connect to your favorite AI models without writing a single line of code. Seamlessly integrate GPT, Claude, and Gemini.",
+    icon: "🤖",
+    gradient: "bg-gradient-to-br from-blue-600/30 to-cyan-600/10 border border-blue-500/20",
+    className: "md:col-span-2",
+  },
+  {
+    title: "Data Visualization",
+    description: "Generate beautiful charts seamlessly from complex datasets with real-time updates.",
+    icon: "📊",
+    gradient: "bg-gradient-to-br from-emerald-600/30 to-teal-600/10 border border-emerald-500/20",
+    className: "md:col-span-1",
+  },
+  {
+    title: "Workflow Automation",
+    description: "Trigger pipelines based on user actions and automate repetitive tasks at scale.",
+    icon: "⚡",
+    gradient: "bg-gradient-to-br from-purple-600/30 to-violet-600/10 border border-purple-500/20",
+    className: "md:col-span-1",
+  },
+  {
+    title: "Global Edge Deployment",
+    description: "Deploy to edge networks globally with a single command. Zero configuration overhead, instant propagation.",
+    icon: "🌍",
+    gradient: "bg-gradient-to-br from-orange-600/30 to-amber-600/10 border border-orange-500/20",
+    className: "md:col-span-2",
+  },
+];
+
+function BentoGridItem({ className, title, description, icon, gradient, index }) {
+  const [isHovered, setIsHovered] = useState(false);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const cardRef = useRef(null);
+
+  const handleMouseMove = (e) => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    setMousePos({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    });
+  };
+
+  return (
+    <motion.div
+        ref={cardRef}
+        initial={{ opacity: 0, y: 50 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: index * 0.15, type: "spring", bounce: 0.3 }}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        onMouseMove={handleMouseMove}
+        className={`row-span-1 rounded-xl group/bento hover:shadow-xl transition-all duration-300 shadow-none p-4 bg-neutral-900/80 border border-white/10 hover:border-white/20 flex flex-col space-y-4 relative overflow-hidden cursor-pointer ${className}`}
+    >
+      {/* Mouse follow glow */}
+      <div
+        className="absolute inset-0 opacity-0 group-hover/bento:opacity-100 transition-opacity duration-500 pointer-events-none"
+        style={{
+          background: isHovered
+            ? `radial-gradient(400px circle at ${mousePos.x}px ${mousePos.y}px, rgba(255,255,255,0.06), transparent 40%)`
+            : "none",
+        }}
+      ></div>
+      
+      <GlowHeader gradient={gradient} icon={icon} title={title} />
+      
+      <div className="group-hover/bento:translate-x-2 transition duration-300 z-10 relative">
+        <div className="text-3xl mb-2">{icon}</div>
+        <div className="font-sans font-bold text-neutral-100 mb-2 mt-2 text-lg">
+          {title}
+        </div>
+        <div className="font-sans font-normal text-neutral-400 text-sm leading-relaxed">
+          {description}
+        </div>
+      </div>
+      
+      {/* Corner glow */}
+      <motion.div 
+        animate={{ opacity: isHovered ? 0.6 : 0, scale: isHovered ? 1.5 : 1 }}
+        transition={{ duration: 0.4 }}
+        className="absolute -bottom-8 -right-8 w-24 h-24 bg-blue-500/20 rounded-full blur-2xl z-0 pointer-events-none" 
+      />
+    </motion.div>
+  );
+}
+
+function BentoGrid() {
+  return (
+    <div className="max-w-5xl mx-auto flex flex-col justify-center min-h-[90vh] py-20 px-6 pt-32">
+      <motion.h1 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="text-5xl font-bold mb-4 text-center tracking-tight"
+      >
+        Powerful Features
+      </motion.h1>
+      <motion.p 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="text-gray-400 text-center mb-10 text-lg"
+      >
+        Built for scale, designed for delight.
+      </motion.p>
+      <div className="grid md:auto-rows-[20rem] grid-cols-1 md:grid-cols-3 gap-4 mx-auto w-full">
+        {features.map((item, i) => (
+          <BentoGridItem
+            key={i}
+            index={i}
+            title={item.title}
+            description={item.description}
+            icon={item.icon}
+            gradient={item.gradient}
+            className={item.className}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const root = createRoot(document.getElementById("root"));
+root.render(<BentoGrid />);
+</script>
+</body>
+</html>

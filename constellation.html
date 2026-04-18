@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Constellation Network — Interaction Suite</title>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; font-family: system-ui, -apple-system, sans-serif; }
+        canvas { display: block; width: 100%; height: 100%; }
+        #actions { position: absolute; top: 20px; left: 20px; display: flex; gap: 15px; z-index: 20; }
+        .action-btn { padding: 10px 20px; font-size: 14px; font-weight: bold; color: #fff; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 20px; cursor: pointer; text-decoration: none; backdrop-filter: blur(10px); transition: all 0.3s ease; box-sizing: border-box; }
+        .action-btn:hover { background: rgba(255, 255, 255, 0.2); border-color: rgba(255, 255, 255, 0.5); box-shadow: 0 0 15px rgba(0, 255, 255, 0.3); }
+    </style>
+</head>
+<body>
+    <div id="actions">
+        <a href="index.html" class="action-btn">⌂ Home</a>
+        <button id="copy-btn" class="action-btn">Copy Code</button>
+        <button id="copy-prompt-btn" class="action-btn">Copy Prompt</button>
+    </div>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        document.getElementById('copy-btn').addEventListener('click', () => {
+            const btn = document.getElementById('copy-btn');
+            fetch(window.location.href).then(r => r.text()).then(code => {
+                navigator.clipboard.writeText(code);
+                btn.textContent = 'Copied!';
+                setTimeout(() => btn.textContent = 'Copy Code', 2000);
+            });
+        });
+
+        document.getElementById('copy-prompt-btn').addEventListener('click', () => {
+            const btn = document.getElementById('copy-prompt-btn');
+            const prompt = "Create a 2D Constellation Network using vanilla HTML Canvas. Render drifting particles that mathematically draw alpha-connected intersecting lines when in proximity. Implement a responsive full-page aesthetic with mouse repulsion interaction.";
+            navigator.clipboard.writeText(prompt);
+            btn.textContent = 'Copied!';
+            setTimeout(() => btn.textContent = 'Copy Prompt', 2000);
+        });
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let cw = window.innerWidth;
+        let ch = window.innerHeight;
+
+        function resize() {
+            cw = window.innerWidth;
+            ch = window.innerHeight;
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = cw * dpr;
+            canvas.height = ch * dpr;
+            ctx.scale(dpr, dpr);
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        const N = 250;
+        const pts = [];
+        for (let i=0; i<N; i++) {
+            pts.push({
+                x: Math.random() * cw,
+                y: Math.random() * ch,
+                vx: (Math.random() - 0.5) * 1.5,
+                vy: (Math.random() - 0.5) * 1.5,
+                r: Math.random() * 2 + 1
+            });
+        }
+
+        let mx = -9999, my = -9999;
+        window.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+
+        function loop() {
+            requestAnimationFrame(loop);
+            ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+            ctx.fillRect(0, 0, cw, ch);
+
+            for(let i=0; i<N; i++) {
+                let p = pts[i];
+                let dx = p.x - mx;
+                let dy = p.y - my;
+                let dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist < 150) {
+                    let force = (150 - dist) / 150;
+                    p.vx += (dx / dist) * force * 0.5;
+                    p.vy += (dy / dist) * force * 0.5;
+                }
+
+                p.x += p.vx;
+                p.y += p.vy;
+
+                let speed = Math.sqrt(p.vx*p.vx + p.vy*p.vy);
+                if (speed > 2) {
+                    p.vx *= 0.95;
+                    p.vy *= 0.95;
+                } else if (speed < 0.5) {
+                    p.vx *= 1.01;
+                    p.vy *= 1.01;
+                }
+
+                if (p.x < 0 || p.x > cw) p.vx *= -1;
+                if (p.y < 0 || p.y > ch) p.vy *= -1;
+            }
+
+            ctx.lineWidth = 1;
+            for(let i=0; i<N; i++) {
+                let p1 = pts[i];
+                for(let j=i+1; j<N; j++) {
+                    let p2 = pts[j];
+                    let dx = p1.x - p2.x;
+                    let dy = p1.y - p2.y;
+                    let distSq = dx*dx + dy*dy;
+
+                    if (distSq < 15000) {
+                        let alpha = 1 - distSq / 15000;
+                        ctx.strokeStyle = `rgba(0, 255, 255, ${alpha * 0.5})`;
+                        ctx.beginPath();
+                        ctx.moveTo(p1.x, p1.y);
+                        ctx.lineTo(p2.x, p2.y);
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            ctx.fillStyle = "#fff";
+            for(let i=0; i<N; i++) {
+                ctx.beginPath();
+                ctx.arc(pts[i].x, pts[i].y, pts[i].r, 0, Math.PI*2);
+                ctx.fill();
+            }
+        }
+        loop();
+    </script>
+</body>
+</html>

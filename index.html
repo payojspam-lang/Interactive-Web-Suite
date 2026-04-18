@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Suite</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        background: '#03050c',
+                        foreground: '#ffffff',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Babel for in-browser transpilation -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.2.0",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+        "gsap": "https://esm.sh/gsap@3.12.5",
+        "gsap/ScrollTrigger": "https://esm.sh/gsap@3.12.5/ScrollTrigger"
+      }
+    }
+    </script>
+
+    <script type="text/javascript">
+        window.cn = function(...classes) {
+            return classes.filter(Boolean).join(' ');
+        };
+    </script>
+    
+    <style>
+        :root {
+            --color-foreground: white;
+            --color-background: #03050c;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            min-height: 100%;
+            background-color: var(--color-background);
+            color: var(--color-foreground);
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            display: block; /* Modified to block to stack sections naturally */
+        }
+
+        #bg-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            opacity: 0.5;
+        }
+
+        .container {
+            position: relative;
+            z-index: 10;
+            text-align: center;
+            max-width: 1000px;
+            width: 90%;
+            padding: 60px 0;
+            margin: 0 auto; /* Added to center container within block body */
+        }
+
+        h1.suite-title {
+            font-size: 3.5rem;
+            font-weight: 900;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #00f2fe, #4facfe);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        p {
+            font-size: 1.2rem;
+            color: #a0a5b5;
+            margin-bottom: 50px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+
+        .card {
+            border-radius: 24px;
+            padding: 40px 30px;
+            text-decoration: none;
+            color: #fff;
+            backdrop-filter: blur(20px);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        .card:hover {
+            transform: translateY(-10px) scale(1.02);
+            z-index: 20;
+        }
+
+        /* --- SPOTLIGHT GLOW CSS --- */
+        [data-glow]::before,
+        [data-glow]::after {
+            pointer-events: none;
+            content: "";
+            position: absolute;
+            inset: calc(var(--border-size) * -1);
+            border: var(--border-size) solid transparent;
+            border-radius: calc(var(--radius) * 1px);
+            background-attachment: fixed;
+            background-size: calc(100% + (2 * var(--border-size))) calc(100% + (2 * var(--border-size)));
+            background-repeat: no-repeat;
+            background-position: 50% 50%;
+            mask: linear-gradient(transparent, transparent), linear-gradient(white, white);
+            mask-clip: padding-box, border-box;
+            mask-composite: intersect;
+            -webkit-mask: linear-gradient(transparent, transparent), linear-gradient(white, white);
+            -webkit-mask-clip: padding-box, border-box;
+            -webkit-mask-composite: source-in;
+        }
+        
+        [data-glow]::before {
+            background-image: radial-gradient(
+                calc(var(--spotlight-size) * 0.75) calc(var(--spotlight-size) * 0.75) at
+                calc(var(--x, 0) * 1px)
+                calc(var(--y, 0) * 1px),
+                hsl(var(--hue, 210) calc(var(--saturation, 100) * 1%) calc(var(--lightness, 50) * 1%) / var(--border-spot-opacity, 1)), transparent 100%
+            );
+            filter: brightness(2);
+        }
+        
+        [data-glow]::after {
+            background-image: radial-gradient(
+                calc(var(--spotlight-size) * 0.5) calc(var(--spotlight-size) * 0.5) at
+                calc(var(--x, 0) * 1px)
+                calc(var(--y, 0) * 1px),
+                hsl(0 100% 100% / var(--border-light-opacity, 1)), transparent 100%
+            );
+        }
+        
+        [data-glow] > [data-glow] {
+            position: absolute;
+            inset: 0;
+            will-change: filter;
+            opacity: var(--outer, 1);
+            border-radius: calc(var(--radius) * 1px);
+            border-width: calc(var(--border-size) * 20);
+            filter: blur(calc(var(--border-size) * 10));
+            background: none;
+            pointer-events: none;
+            border: none;
+        }
+        
+        [data-glow] > [data-glow]::before {
+            inset: -10px;
+            border-width: 10px;
+        }
+
+        .card[data-glow] {
+            --base: 220;
+            --spread: 200;
+            --radius: 24;
+            --border: 2;
+            --backdrop: rgba(255, 255, 255, 0.03);
+            --backup-border: var(--backdrop);
+            --size: 250;
+            --outer: 1;
+            --border-size: calc(var(--border, 2) * 1px);
+            --spotlight-size: calc(var(--size, 150) * 1px);
+            --hue: calc(var(--base) + (var(--xp, 0) * var(--spread, 0)));
+            --saturation: 100;
+            --lightness: 70;
+            --bg-spot-opacity: 0.15;
+            --border-spot-opacity: 1;
+            --border-light-opacity: 1;
+
+            background-image: radial-gradient(
+                var(--spotlight-size) var(--spotlight-size) at
+                calc(var(--x, 0) * 1px)
+                calc(var(--y, 0) * 1px),
+                hsl(var(--hue, 210) calc(var(--saturation, 100) * 1%) calc(var(--lightness, 70) * 1%) / var(--bg-spot-opacity, 0.1)), transparent
+            );
+            background-color: var(--backdrop, transparent);
+            background-size: calc(100% + (2 * var(--border-size))) calc(100% + (2 * var(--border-size)));
+            background-position: 50% 50%;
+            background-attachment: fixed;
+            border: var(--border-size) solid var(--backup-border);
+            position: relative;
+            touch-action: none;
+        }
+
+        .card > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        .icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+
+        .card h2 {
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+        }
+
+        .card p {
+            font-size: 1rem;
+            margin-bottom: 0;
+            color: #8b92a5;
+        }
+    </style>
+</head>
+<body>
+    <div id="hero-root"></div>
+
+    <canvas id="bg-canvas"></canvas>
+    <div class="container relative min-h-screen z-10 pt-32">
+        <h1 class="suite-title text-5xl font-black bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent mb-4">Interactive Web Suite</h1>
+        <p>Select a generative physics interaction to experience and export.</p>
+        <div class="grid">
+            <a href="particle-text.html" class="card" data-glow style="--base: 220;">
+                <div data-glow></div>
+                <div class="icon">✨</div>
+                <h2>Particle Text</h2>
+                <p>10,000 localized particles morphing gracefully into your typed keystrokes with orbital math.</p>
+            </a>
+            <a href="constellation.html" class="card" data-glow style="--base: 280;">
+                <div data-glow></div>
+                <div class="icon">🌌</div>
+                <h2>Constellation Network</h2>
+                <p>Organic network physics drawing interconnected lines constrained by fluid spatial kinetics.</p>
+            </a>
+            <a href="scanner.html" class="card" data-glow style="--base: 120;">
+                <div data-glow></div>
+                <div class="icon">🔍</div>
+                <h2>Scanner Card Stream</h2>
+                <p>A full React / Tailwind / Three.js component compiled in browser for visualizing live 3D streams.</p>
+            </a>
+            <a href="testimonials.html" class="card" data-glow style="--base: 0;">
+                <div data-glow></div>
+                <div class="icon">💬</div>
+                <h2>Testimonial Columns</h2>
+                <p>Smooth, infinite scrolling masonry testimonials powered by Framer Motion and React.</p>
+            </a>
+            <a href="dotted-surface.html" class="card" data-glow style="--base: 30;">
+                <div data-glow></div>
+                <div class="icon">✨</div>
+                <h2>Dotted Surface</h2>
+                <p>3D sine wave particles floating in a dotted surface layout with dynamic scaling.</p>
+            </a>
+            <a href="zoom-parallax.html" class="card" data-glow style="--base: 220;">
+                <div data-glow></div>
+                <div class="icon">🖼️</div>
+                <h2>Zoom Parallax</h2>
+                <p>Advanced Lenis-powered scroll zooming parallax gallery spanning viewport.</p>
+            </a>
+            <a href="team.html" class="card" data-glow style="--base: 280;">
+                <div data-glow></div>
+                <div class="icon">👥</div>
+                <h2>Team Marquee</h2>
+                <p>Smooth infinitely looping CSS marquee of team profiles for dynamic headers.</p>
+            </a>
+            <a href="globe.html" class="card" data-glow style="--base: 120;">
+                <div data-glow></div>
+                <div class="icon">🌍</div>
+                <h2>Interactive D3 Globe</h2>
+                <p>Wireframe dotted world map mapping JSON topology via D3 projections.</p>
+            </a>
+            <a href="gallery.html" class="card" data-glow style="--base: 0;">
+                <div data-glow></div>
+                <div class="icon">🖼️</div>
+                <h2>3D Fiber Gallery</h2>
+                <p>Infinite scroll WebGL image gallery bending planes via advanced shaders.</p>
+            </a>
+            <a href="glass-video-hero.html" class="card" data-glow style="--base: 60;">
+                <div data-glow></div>
+                <div class="icon">🎥</div>
+                <h2>Glass Video Hero</h2>
+                <p>A cinematic full-bleed video hero section featuring frosted glass UI and dynamic aspect toggles.</p>
+            </a>
+            <a href="project-showcase.html" class="card" data-glow style="--base: 120;">
+                <div data-glow></div>
+                <div class="icon">💼</div>
+                <h2>Project Showcase</h2>
+                <p>Interactive cursor-following selected work showcase with smooth reveals.</p>
+            </a>
+            <a href="testimonials-scramble.html" class="card" data-glow style="--base: 180;">
+                <div data-glow></div>
+                <div class="icon">🗣️</div>
+                <h2>Testimonial Scramble</h2>
+                <p>Kinetic scambled text reveals bundled with unique morphing avatar testimonials.</p>
+            </a>
+            <a href="pricing-section-4.html" class="card" data-glow style="--base: 240;">
+                <div data-glow></div>
+                <div class="icon">💰</div>
+                <h2>Pricing Section</h2>
+                <p>Sparkles, number flows and vertical cut revealed animated pricing cards.</p>
+            </a>
+            <a href="sticky-scroll.html" class="card" data-glow style="--base: 300;">
+                <div data-glow></div>
+                <div class="icon">📜</div>
+                <h2>Sticky Lenis Scroll</h2>
+                <p>A sticky image gallery gallery driven by CSS and Lenis smooth scrolling.</p>
+            </a>
+            <a href="gooey-text-morphing.html" class="card" data-glow style="--base: 360;">
+                <div data-glow></div>
+                <div class="icon">💧</div>
+                <h2>Gooey Morphing Text</h2>
+                <p>SVG filter magic creating liquid cross-morphs between string values.</p>
+            </a>
+            <a href="canvas.html" class="card" data-glow style="--base: 40;">
+                <div data-glow></div>
+                <div class="icon">🎨</div>
+                <h2>Dicons Canvas</h2>
+                <p>Interactive mouse trailing canvas lines rendering spring physics curves.</p>
+            </a>
+            <a href="bento-grid.html" class="card" data-glow style="--base: 80;">
+                <div data-glow></div>
+                <div class="icon">🍱</div>
+                <h2>Bento Grid</h2>
+                <p>Sleek bento grid layouts with rich hover effects and localized states.</p>
+            </a>
+            <a href="radial-orbital-timeline.html" class="card" data-glow style="--base: 140;">
+                <div data-glow></div>
+                <div class="icon">🪐</div>
+                <h2>Orbital Timeline</h2>
+                <p>A radial orbiting 3D data-timeline showing connected milestones visually.</p>
+            </a>
+            <a href="scroll-expansion-hero.html" class="card" data-glow style="--base: 200;">
+                <div data-glow></div>
+                <div class="icon">🔍</div>
+                <h2>Scroll Expansion Hero</h2>
+                <p>Scroll-driven video or image expansion section blending seamlessly into content.</p>
+            </a>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('bg-canvas');
+        const ctx = canvas.getContext('2d');
+        let cw = window.innerWidth;
+        let ch = window.innerHeight;
+
+        function resize() {
+            cw = window.innerWidth;
+            ch = window.innerHeight;
+            canvas.width = cw;
+            canvas.height = ch;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        const stars = Array.from({length: 150}, () => ({
+            x: Math.random() * cw,
+            y: Math.random() * ch,
+            r: Math.random() * 1.5,
+            vx: (Math.random() - 0.5) * 0.2,
+            vy: (Math.random() - 0.5) * 0.2
+        }));
+
+        function loop() {
+            requestAnimationFrame(loop);
+            ctx.clearRect(0, 0, cw, ch);
+            ctx.fillStyle = '#fff';
+            stars.forEach(s => {
+                s.x += s.vx;
+                s.y += s.vy;
+                if (s.x < 0) s.x = cw;
+                if (s.x > cw) s.x = 0;
+                if (s.y < 0) s.y = ch;
+                if (s.y > ch) s.y = 0;
+                
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+        loop();
+
+        const syncPointer = (e) => {
+            const x = e.clientX;
+            const y = e.clientY;
+            const xp = x / window.innerWidth;
+            const yp = y / window.innerHeight;
+
+            document.querySelectorAll('[data-glow]').forEach(card => {
+                if (card.classList.contains('card')) {
+                    card.style.setProperty('--x', x.toFixed(2));
+                    card.style.setProperty('--xp', xp.toFixed(2));
+                    card.style.setProperty('--y', y.toFixed(2));
+                    card.style.setProperty('--yp', yp.toFixed(2));
+                }
+            });
+        };
+        document.addEventListener('pointermove', syncPointer);
+    </script>
+    
+    <script type="text/babel" data-type="module">
+        import React, { useEffect, useRef } from "react";
+        import { createRoot } from "react-dom/client";
+        import { gsap } from "gsap";
+        import ScrollTrigger from "gsap/ScrollTrigger";
+
+        const cn = window.cn;
+
+        gsap.registerPlugin(ScrollTrigger);
+
+        const INJECTED_STYLES = `
+          .gsap-reveal { visibility: hidden; }
+
+          .film-grain {
+              position: absolute; inset: 0; width: 100%; height: 100%;
+              pointer-events: none; z-index: 50; opacity: 0.05; mix-blend-mode: overlay;
+              background: url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="noiseFilter"><feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noiseFilter)"/></svg>');
+          }
+
+          .bg-grid-theme {
+              background-size: 60px 60px;
+              background-image: 
+                  linear-gradient(to right, color-mix(in srgb, white 5%, transparent) 1px, transparent 1px),
+                  linear-gradient(to bottom, color-mix(in srgb, white 5%, transparent) 1px, transparent 1px);
+              mask-image: radial-gradient(ellipse at center, black 0%, transparent 70%);
+              -webkit-mask-image: radial-gradient(ellipse at center, black 0%, transparent 70%);
+          }
+
+          .text-3d-matte {
+              color: white;
+              text-shadow: 
+                  0 10px 30px color-mix(in srgb, white 20%, transparent), 
+                  0 2px 4px color-mix(in srgb, white 10%, transparent);
+          }
+
+          .text-silver-matte {
+              background: linear-gradient(180deg, white 0%, color-mix(in srgb, white 40%, transparent) 100%);
+              -webkit-background-clip: text;
+              -webkit-text-fill-color: transparent;
+              background-clip: text;
+              filter: 
+                  drop-shadow(0px 10px 20px color-mix(in srgb, white 15%, transparent)) 
+                  drop-shadow(0px 2px 4px color-mix(in srgb, white 10%, transparent));
+          }
+
+          .text-card-silver-matte {
+              background: linear-gradient(180deg, #FFFFFF 0%, #A1A1AA 100%);
+              -webkit-background-clip: text;
+              -webkit-text-fill-color: transparent;
+              background-clip: text;
+              filter: 
+                  drop-shadow(0px 12px 24px rgba(0,0,0,0.8)) 
+                  drop-shadow(0px 4px 8px rgba(0,0,0,0.6));
+          }
+
+          .premium-depth-card {
+              background: linear-gradient(145deg, #162C6D 0%, #0A101D 100%);
+              box-shadow: 
+                  0 40px 100px -20px rgba(0, 0, 0, 0.9),
+                  0 20px 40px -20px rgba(0, 0, 0, 0.8),
+                  inset 0 1px 2px rgba(255, 255, 255, 0.2),
+                  inset 0 -2px 4px rgba(0, 0, 0, 0.8);
+              border: 1px solid rgba(255, 255, 255, 0.04);
+          }
+
+          .card-sheen {
+              position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 50;
+              background: radial-gradient(800px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(255,255,255,0.06) 0%, transparent 40%);
+              mix-blend-mode: screen; transition: opacity 0.3s ease;
+          }
+
+          .iphone-bezel {
+              background-color: #111;
+              box-shadow: 
+                  inset 0 0 0 2px #52525B, 
+                  inset 0 0 0 7px #000, 
+                  0 40px 80px -15px rgba(0,0,0,0.9),
+                  0 15px 25px -5px rgba(0,0,0,0.7);
+          }
+
+          .hardware-btn {
+              background: linear-gradient(90deg, #404040 0%, #171717 100%);
+              box-shadow: 
+                  -2px 0 5px rgba(0,0,0,0.8),
+                  inset -1px 0 1px rgba(255,255,255,0.15),
+                  inset 1px 0 2px rgba(0,0,0,0.8);
+              border-left: 1px solid rgba(255,255,255,0.05);
+          }
+          
+          .screen-glare {
+              background: linear-gradient(110deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0) 45%);
+          }
+
+          .widget-depth {
+              background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%);
+              box-shadow: 
+                  0 10px 20px rgba(0,0,0,0.3),
+                  inset 0 1px 1px rgba(255,255,255,0.05),
+                  inset 0 -1px 1px rgba(0,0,0,0.5);
+              border: 1px solid rgba(255,255,255,0.03);
+          }
+
+          .floating-ui-badge {
+              background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.01) 100%);
+              backdrop-filter: blur(24px); 
+              -webkit-backdrop-filter: blur(24px);
+              box-shadow: 
+                  0 0 0 1px rgba(255, 255, 255, 0.1),
+                  0 25px 50px -12px rgba(0, 0, 0, 0.8),
+                  inset 0 1px 1px rgba(255,255,255,0.2),
+                  inset 0 -1px 1px rgba(0,0,0,0.5);
+          }
+
+          .btn-modern-light, .btn-modern-dark {
+              transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+          }
+          .btn-modern-light {
+              background: linear-gradient(180deg, #FFFFFF 0%, #F1F5F9 100%);
+              color: #0F172A;
+              box-shadow: 0 0 0 1px rgba(0,0,0,0.05), 0 2px 4px rgba(0,0,0,0.1), 0 12px 24px -4px rgba(0,0,0,0.3), inset 0 1px 1px rgba(255,255,255,1), inset 0 -3px 6px rgba(0,0,0,0.06);
+          }
+          .btn-modern-light:hover {
+              transform: translateY(-3px);
+              box-shadow: 0 0 0 1px rgba(0,0,0,0.05), 0 6px 12px -2px rgba(0,0,0,0.15), 0 20px 32px -6px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,1), inset 0 -3px 6px rgba(0,0,0,0.06);
+          }
+          .btn-modern-dark {
+              background: linear-gradient(180deg, #27272A 0%, #18181B 100%);
+              color: #FFFFFF;
+              box-shadow: 0 0 0 1px rgba(255,255,255,0.1), 0 2px 4px rgba(0,0,0,0.6), 0 12px 24px -4px rgba(0,0,0,0.9), inset 0 1px 1px rgba(255,255,255,0.15), inset 0 -3px 6px rgba(0,0,0,0.8);
+          }
+          .btn-modern-dark:hover {
+              transform: translateY(-3px);
+              background: linear-gradient(180deg, #3F3F46 0%, #27272A 100%);
+              box-shadow: 0 0 0 1px rgba(255,255,255,0.15), 0 6px 12px -2px rgba(0,0,0,0.7), 0 20px 32px -6px rgba(0,0,0,1), inset 0 1px 1px rgba(255,255,255,0.2), inset 0 -3px 6px rgba(0,0,0,0.8);
+          }
+
+          .progress-ring {
+              transform: rotate(-90deg);
+              transform-origin: center;
+              stroke-dasharray: 402;
+              stroke-dashoffset: 402;
+              stroke-linecap: round;
+          }
+        `;
+
+        function CinematicHero() {
+          const containerRef = useRef(null);
+          const mainCardRef = useRef(null);
+          const mockupRef = useRef(null);
+          const requestRef = useRef(0);
+
+          useEffect(() => {
+            const handleMouseMove = (e) => {
+              if (window.scrollY > window.innerHeight * 2) return;
+
+              cancelAnimationFrame(requestRef.current);
+              requestRef.current = requestAnimationFrame(() => {
+                if (mainCardRef.current && mockupRef.current) {
+                  const rect = mainCardRef.current.getBoundingClientRect();
+                  const mouseX = e.clientX - rect.left;
+                  const mouseY = e.clientY - rect.top;
+                  
+                  mainCardRef.current.style.setProperty("--mouse-x", `${mouseX}px`);
+                  mainCardRef.current.style.setProperty("--mouse-y", `${mouseY}px`);
+
+                  const xVal = (e.clientX / window.innerWidth - 0.5) * 2;
+                  const yVal = (e.clientY / window.innerHeight - 0.5) * 2;
+
+                  gsap.to(mockupRef.current, {
+                    rotationY: xVal * 12,
+                    rotationX: -yVal * 12,
+                    ease: "power3.out",
+                    duration: 1.2,
+                  });
+                }
+              });
+            };
+
+            window.addEventListener("mousemove", handleMouseMove);
+            return () => {
+              window.removeEventListener("mousemove", handleMouseMove);
+              cancelAnimationFrame(requestRef.current);
+            };
+          },[]);
+
+          useEffect(() => {
+            const isMobile = window.innerWidth < 768;
+
+            const ctx = gsap.context(() => {
+              gsap.set(".text-track", { autoAlpha: 0, y: 60, scale: 0.85, filter: "blur(20px)", rotationX: -20 });
+              gsap.set(".text-days", { autoAlpha: 1, clipPath: "inset(0 100% 0 0)" });
+              gsap.set(".main-card", { y: window.innerHeight + 200, autoAlpha: 1 });
+              gsap.set([".card-left-text", ".card-right-text", ".mockup-scroll-wrapper", ".phone-widget"], { autoAlpha: 0 });
+              gsap.set(".cta-wrapper", { autoAlpha: 0, scale: 0.8, filter: "blur(30px)" });
+
+              const introTl = gsap.timeline({ delay: 0.3 });
+              introTl
+                .to(".text-track", { duration: 1.8, autoAlpha: 1, y: 0, scale: 1, filter: "blur(0px)", rotationX: 0, ease: "expo.out" })
+                .to(".text-days", { duration: 1.4, clipPath: "inset(0 0% 0 0)", ease: "power4.inOut" }, "-=1.0");
+
+              const scrollTl = gsap.timeline({
+                scrollTrigger: {
+                  trigger: containerRef.current,
+                  start: "top top",
+                  end: "+=7000",
+                  pin: true,
+                  scrub: 1,
+                  anticipatePin: 1,
+                },
+              });
+
+              scrollTl
+                .to([".hero-text-wrapper", ".bg-grid-theme"], { scale: 1.15, filter: "blur(20px)", opacity: 0.2, ease: "power2.inOut", duration: 2 }, 0)
+                .to(".main-card", { y: 0, ease: "power3.inOut", duration: 2 }, 0)
+                .to(".main-card", { width: "100%", height: "100%", borderRadius: "0px", ease: "power3.inOut", duration: 1.5 })
+                .fromTo(".mockup-scroll-wrapper",
+                  { y: 300, z: -500, rotationX: 50, rotationY: -30, autoAlpha: 0, scale: 0.6 },
+                  { y: 0, z: 0, rotationX: 0, rotationY: 0, autoAlpha: 1, scale: 1, ease: "expo.out", duration: 2.5 }, "-=0.8"
+                )
+                .fromTo(".phone-widget", { y: 40, autoAlpha: 0, scale: 0.95 }, { y: 0, autoAlpha: 1, scale: 1, stagger: 0.15, ease: "back.out(1.2)", duration: 1.5 }, "-=1.5")
+                .to(".progress-ring", { strokeDashoffset: 60, duration: 2, ease: "power3.inOut" }, "-=1.2")
+                .to(".counter-val", { innerHTML: 365, snap: { innerHTML: 1 }, duration: 2, ease: "expo.out" }, "-=2.0")
+
+                .fromTo(".card-left-text", { x: -50, autoAlpha: 0 }, { x: 0, autoAlpha: 1, ease: "power4.out", duration: 1.5 }, "-=1.5")
+                .fromTo(".card-right-text", { x: 50, autoAlpha: 0, scale: 0.8 }, { x: 0, autoAlpha: 1, scale: 1, ease: "expo.out", duration: 1.5 }, "<")
+                .to({}, { duration: 2.5 })
+                .set(".hero-text-wrapper", { autoAlpha: 0 })
+                .set(".cta-wrapper", { autoAlpha: 1 }) 
+                .to({}, { duration: 1.5 })
+                .to([".mockup-scroll-wrapper", ".card-left-text", ".card-right-text"], {
+                  scale: 0.9, y: -40, z: -200, autoAlpha: 0, ease: "power3.in", duration: 1.2, stagger: 0.05,
+                })
+                .to(".main-card", { 
+                  width: isMobile ? "92vw" : "85vw", 
+                  height: isMobile ? "92vh" : "85vh", 
+                  borderRadius: isMobile ? "32px" : "40px", 
+                  ease: "expo.inOut", 
+                  duration: 1.8 
+                }, "pullback") 
+                .to(".cta-wrapper", { scale: 1, filter: "blur(0px)", ease: "expo.inOut", duration: 1.8 }, "pullback")
+                .to(".main-card", { y: -window.innerHeight - 300, ease: "power3.in", duration: 1.5 });
+
+            }, containerRef);
+            return () => ctx.revert();
+          }, []); 
+
+          return (
+            <div ref={containerRef} className="relative w-screen h-screen overflow-hidden flex items-center justify-center bg-black text-white font-sans antialiased" style={{ perspective: "1500px" }}>
+              <style dangerouslySetInnerHTML={{ __html: INJECTED_STYLES }} />
+              <div className="film-grain" aria-hidden="true" />
+              <div className="bg-grid-theme absolute inset-0 z-0 pointer-events-none opacity-50" aria-hidden="true" />
+
+              <div className="hero-text-wrapper absolute z-10 flex flex-col items-center justify-center text-center w-screen px-4">
+                <h1 className="text-track gsap-reveal text-3d-matte text-5xl md:text-7xl lg:text-[6rem] font-bold tracking-tight mb-2">Build interfaces,</h1>
+                <h1 className="text-days gsap-reveal text-silver-matte text-5xl md:text-7xl lg:text-[6rem] font-extrabold tracking-tighter">not boundaries.</h1>
+              </div>
+
+              <div className="cta-wrapper absolute z-10 flex flex-col items-center justify-center text-center w-screen px-4 gsap-reveal pointer-events-auto">
+                <h2 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 tracking-tight text-silver-matte">Explore the suite.</h2>
+                <p className="text-gray-400 text-lg md:text-xl mb-12 max-w-xl mx-auto font-light leading-relaxed">Scroll down to discover the rest of our generative physics tools and interactive spatial layers.</p>
+              </div>
+
+              <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none" style={{ perspective: "1500px" }}>
+                <div ref={mainCardRef} className="main-card premium-depth-card relative overflow-hidden gsap-reveal flex items-center justify-center pointer-events-auto w-[92vw] md:w-[85vw] h-[92vh] md:h-[85vh] rounded-[32px] md:rounded-[40px]">
+                  <div className="card-sheen" aria-hidden="true" />
+                  <div className="relative w-full h-full mx-auto px-4 lg:px-12 flex flex-col justify-evenly lg:grid lg:grid-cols-3 items-center z-10">
+                    <div className="card-right-text gsap-reveal order-1 lg:order-3 flex justify-center lg:justify-end z-20 w-full">
+                      <h2 className="text-6xl md:text-[6rem] lg:text-[8rem] font-black uppercase tracking-tighter text-card-silver-matte lg:mt-0">Suite</h2>
+                    </div>
+
+                    <div className="mockup-scroll-wrapper order-2 lg:order-2 relative w-full h-[380px] lg:h-[600px] flex items-center justify-center z-10">
+                      <div className="relative w-full h-full flex items-center justify-center transform scale-[0.65] lg:scale-100">
+                        <div ref={mockupRef} className="relative w-[280px] h-[580px] rounded-[3rem] iphone-bezel flex flex-col">
+                          <div className="absolute inset-[7px] bg-[#050914] rounded-[2.5rem] overflow-hidden text-white z-10">
+                            <div className="absolute top-[5px] left-1/2 -translate-x-1/2 w-[100px] h-[28px] bg-black rounded-full z-50 flex items-center justify-end px-3">
+                              <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse" />
+                            </div>
+                            <div className="relative w-full h-full pt-12 px-5 pb-8 flex flex-col">
+                              <div className="phone-widget relative w-44 h-44 mx-auto flex items-center justify-center mb-8">
+                                <svg className="absolute inset-0 w-full h-full"><circle cx="88" cy="88" r="64" fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="12" /><circle className="progress-ring" cx="88" cy="88" r="64" fill="none" stroke="#00f2fe" strokeWidth="12" /></svg>
+                                <div className="text-center z-10 flex flex-col items-center">
+                                  <span className="counter-val text-4xl font-extrabold text-white">0</span>
+                                  <span className="text-[8px] text-cyan-200/50 uppercase">FPS</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="card-left-text gsap-reveal order-3 lg:order-1 flex flex-col justify-center text-center lg:text-left z-20 w-full">
+                      <h3 className="text-white text-2xl lg:text-4xl font-bold mb-0 lg:mb-5 tracking-tight">Performance, uncompromised.</h3>
+                      <p className="hidden md:block text-blue-100/70 text-sm lg:text-lg max-w-[250px]">60 FPS physics engines scaling to millions of dots dynamically.</p>
+                    </div>
+
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        const root = createRoot(document.getElementById('hero-root'));
+        root.render(<CinematicHero />);
+    </script>
+</body>
+</html>

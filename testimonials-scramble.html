@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Testimonial Scramble - Interactive Suite</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        background: "hsl(var(--background))",
+                        foreground: "hsl(var(--foreground))",
+                        border: "hsl(var(--border))",
+                        secondary: "hsl(var(--secondary))",
+                        primary: "hsl(var(--primary))",
+                        "muted-foreground": "hsl(var(--muted-foreground))"
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+        
+        :root {
+            --background: 0 0% 100%;
+            --foreground: 0 0% 3.9%;
+            --border: 0 0% 89.8%;
+            --secondary: 0 0% 96.1%;
+            --primary: 221.2 83.2% 53.3%;
+            --muted-foreground: 0 0% 45.1%;
+        }
+        .dark {
+            --background: 0 0% 0%;
+            --foreground: 0 0% 98%;
+            --border: 0 0% 14.9%;
+            --secondary: 0 0% 14.9%;
+            --primary: 217.2 91.2% 59.8%;
+            --muted-foreground: 0 0% 63.9%;
+        }
+        body { font-family: 'Inter', sans-serif; background-color: black; color: white; margin: 0; }
+        
+        .interactive-nav {
+            position: fixed;
+            top: 1rem;
+            left: 1rem;
+            z-index: 50;
+            display: flex;
+            gap: 1rem;
+        }
+        .nav-btn {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            text-decoration: none;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+        .nav-btn:hover { background: rgba(255,255,255,0.2); }
+        .font-mono { font-family: 'Space Mono', monospace; }
+    </style>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "react": "https://esm.sh/react@18.2.0",
+            "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+            "lucide-react": "https://esm.sh/lucide-react@0.344.0",
+            "clsx": "https://esm.sh/clsx",
+            "tailwind-merge": "https://esm.sh/tailwind-merge"
+        }
+    }
+    </script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="antialiased w-full min-h-screen text-white flex flex-col items-center justify-center">
+
+<div class="interactive-nav">
+    <a href="/" class="nav-btn">← Back to Hub</a>
+</div>
+
+<div id="root" class="w-full mx-auto flex flex-col items-center justify-center -mt-10"></div>
+
+<script type="text/babel" data-type="module">
+import React, { useState, useCallback, useRef, useEffect } from "react";
+import { createRoot } from "react-dom/client";
+import { clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
+
+function cn(...inputs) {
+  return twMerge(clsx(inputs));
+}
+
+// ------------------------------
+// Text Scramble Component
+// ------------------------------
+const CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%&*";
+
+function TextScramble({ text, className = "" }) {
+  const [displayText, setDisplayText] = useState(text)
+  const [isHovering, setIsHovering] = useState(false)
+  const [isScrambling, setIsScrambling] = useState(false)
+  const intervalRef = useRef(null)
+  const frameRef = useRef(0)
+
+  const scramble = useCallback(() => {
+    setIsScrambling(true)
+    frameRef.current = 0
+    const duration = text.length * 3
+
+    if (intervalRef.current) clearInterval(intervalRef.current)
+
+    intervalRef.current = setInterval(() => {
+      frameRef.current++
+
+      const progress = frameRef.current / duration
+      const revealedLength = Math.floor(progress * text.length)
+
+      const newText = text
+        .split("")
+        .map((char, i) => {
+          if (char === " ") return " "
+          if (i < revealedLength) return text[i]
+          return CHARS[Math.floor(Math.random() * CHARS.length)]
+        })
+        .join("")
+
+      setDisplayText(newText)
+
+      if (frameRef.current >= duration) {
+        if (intervalRef.current) clearInterval(intervalRef.current)
+        setDisplayText(text)
+        setIsScrambling(false)
+      }
+    }, 30)
+  }, [text])
+
+  const handleMouseEnter = () => {
+    setIsHovering(true)
+    scramble()
+  }
+
+  const handleMouseLeave = () => {
+    setIsHovering(false)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current)
+    }
+  }, [])
+
+  return (
+    <div
+      className={`group relative inline-flex flex-col cursor-pointer select-none ${className}`}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      <span className="relative font-mono text-lg md:text-2xl tracking-widest uppercase">
+        {displayText.split("").map((char, i) => (
+          <span
+            key={i}
+            className={`inline-block transition-all duration-150 ${
+              isScrambling && char !== text[i] ? "text-primary scale-110" : "text-foreground"
+            }`}
+            style={{
+              transitionDelay: `${i * 10}ms`,
+            }}
+          >
+            {char}
+          </span>
+        ))}
+      </span>
+
+      {/* Animated underline */}
+      <span className="relative h-px w-full mt-2 overflow-hidden">
+        <span
+          className={`absolute inset-0 bg-foreground transition-transform duration-500 ease-out origin-left ${
+            isHovering ? "scale-x-100" : "scale-x-0"
+          }`}
+        />
+        <span className="absolute inset-0 bg-border" />
+      </span>
+
+      {/* Subtle glow on hover */}
+      <span
+        className={`absolute -inset-4 rounded-lg bg-primary/5 transition-opacity duration-300 -z-10 ${
+          isHovering ? "opacity-100" : "opacity-0"
+        }`}
+      />
+    </div>
+  )
+}
+
+// ------------------------------
+// Unique Testimonials Component
+// ------------------------------
+const testimonialsData = [
+  {
+    id: 1,
+    quote: "This changed everything for me.",
+    author: "Sarah Chen",
+    role: "Designer at Figma",
+    avatar: "https://images.unsplash.com/photo-1701615004837-40d8573b6652?q=80&w=1480&auto=format&fit=crop",
+  },
+  {
+    id: 2,
+    quote: "Simply brilliant. Nothing else compares.",
+    author: "Marcus Johnson",
+    role: "Engineer at Vercel",
+    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=1287&auto=format&fit=crop",
+  },
+  {
+    id: 3,
+    quote: "The attention to detail is unmatched.",
+    author: "Elena Rodriguez",
+    role: "Founder at Craft",
+    avatar: "https://images.unsplash.com/photo-1607746882042-944635dfe10e?q=80&w=2670&auto=format&fit=crop",
+  },
+]
+
+function Testimonials() {
+  const [activeIndex, setActiveIndex] = useState(0)
+  const [isAnimating, setIsAnimating] = useState(false)
+  const [displayedQuote, setDisplayedQuote] = useState(testimonialsData[0].quote)
+  const [displayedRole, setDisplayedRole] = useState(testimonialsData[0].role)
+  const [hoveredIndex, setHoveredIndex] = useState(null)
+
+  const handleSelect = (index) => {
+    if (index === activeIndex || isAnimating) return
+    setIsAnimating(true)
+
+    setTimeout(() => {
+      setDisplayedQuote(testimonialsData[index].quote)
+      setDisplayedRole(testimonialsData[index].role)
+      setActiveIndex(index)
+      setTimeout(() => setIsAnimating(false), 400)
+    }, 200)
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-10 py-16 w-full mt-10">
+      {/* Quote Container */}
+      <div className="relative px-8">
+        <span className="absolute -left-2 -top-6 text-7xl font-serif text-foreground/[0.06] select-none pointer-events-none">
+          "
+        </span>
+
+        <p
+          className={cn(
+            "text-2xl md:text-3xl font-light text-foreground text-center max-w-lg leading-relaxed transition-all duration-400 ease-out",
+            isAnimating ? "opacity-0 blur-sm scale-[0.98]" : "opacity-100 blur-0 scale-100",
+          )}
+        >
+          {displayedQuote}
+        </p>
+
+        <span className="absolute -right-2 -bottom-8 text-7xl font-serif text-foreground/[0.06] select-none pointer-events-none">
+          "
+        </span>
+      </div>
+
+      <div className="flex flex-col items-center gap-6 mt-2">
+        {/* Role text */}
+        <p
+          className={cn(
+            "text-xs text-muted-foreground tracking-[0.2em] uppercase transition-all duration-500 ease-out",
+            isAnimating ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0",
+          )}
+        >
+          {displayedRole}
+        </p>
+
+        <div className="flex items-center justify-center gap-2">
+          {testimonialsData.map((testimonial, index) => {
+            const isActive = activeIndex === index
+            const isHovered = hoveredIndex === index && !isActive
+            const showName = isActive || isHovered
+
+            return (
+              <button
+                key={testimonial.id}
+                onClick={() => handleSelect(index)}
+                onMouseEnter={() => setHoveredIndex(index)}
+                onMouseLeave={() => setHoveredIndex(null)}
+                className={cn(
+                  "relative flex items-center gap-0 rounded-full cursor-pointer",
+                  "transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]",
+                  isActive ? "bg-foreground shadow-lg" : "bg-transparent hover:bg-muted/80",
+                  showName ? "pr-4 pl-2 py-2" : "p-0.5",
+                )}
+              >
+                {/* Avatar with smooth ring animation */}
+                <div className="relative flex-shrink-0">
+                  <img
+                    src={testimonial.avatar || "/placeholder.svg"}
+                    alt={testimonial.author}
+                    className={cn(
+                      "w-8 h-8 rounded-full object-cover",
+                      "transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]",
+                      isActive ? "ring-2 ring-background/30" : "ring-0",
+                      !isActive && "hover:scale-105",
+                    )}
+                  />
+                </div>
+
+                <div
+                  className={cn(
+                    "grid transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]",
+                    showName ? "grid-cols-[1fr] opacity-100 ml-2" : "grid-cols-[0fr] opacity-0 ml-0",
+                  )}
+                >
+                  <div className="overflow-hidden">
+                    <span
+                      className={cn(
+                        "text-sm font-medium whitespace-nowrap block",
+                        "transition-colors duration-300",
+                        isActive ? "bg-background text-zinc-900 px-1 rounded" : "text-foreground",
+                      )}
+                    >
+                      {testimonial.author}
+                    </span>
+                  </div>
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CombinedPage() {
+  return (
+    <main className="w-full flex items-center justify-center flex-col 100vh gap-4">
+      <div className="text-center space-y-3 mb-10 pt-16">
+        <p className="text-[10px] uppercase tracking-[0.4em] text-muted-foreground font-mono">Hover to decode</p>
+      </div>
+
+      <div className="flex flex-col items-center gap-12">
+        <TextScramble text="SUCCESS STORIES" />
+      </div>
+
+      <Testimonials />
+    </main>
+  );
+}
+
+const root = createRoot(document.getElementById("root"));
+root.render(<CombinedPage />);
+</script>
+</body>
+</html>

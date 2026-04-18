@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scroll Expansion Hero - Interactive Suite</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        background: "hsl(var(--background))",
+                        foreground: "hsl(var(--foreground))",
+                        primary: "hsl(var(--primary))",
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap');
+        
+        :root {
+            --background: 0 0% 0%;
+            --foreground: 0 0% 98%;
+            --primary: 217.2 91.2% 59.8%;
+        }
+        body { font-family: 'Inter', sans-serif; background-color: black; color: white; margin: 0; min-height: 200vh;}
+        
+        .interactive-nav {
+            position: fixed;
+            top: 1rem;
+            left: 1rem;
+            z-index: 50;
+            display: flex;
+            gap: 1rem;
+        }
+        .nav-btn {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            text-decoration: none;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+        .nav-btn:hover { background: rgba(255,255,255,0.2); }
+    </style>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "react": "https://esm.sh/react@18.2.0",
+            "react/jsx-runtime": "https://esm.sh/react@18.2.0/jsx-runtime",
+            "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+            "framer-motion": "https://esm.sh/framer-motion@10.16.1?deps=react@18.2.0,react-dom@18.2.0"
+        }
+    }
+    </script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="antialiased w-full text-white bg-black">
+
+<div class="interactive-nav">
+    <a href="/" class="nav-btn">← Back to Hub</a>
+</div>
+
+<div id="root" class="w-full relative"></div>
+
+<script type="text/babel" data-type="module">
+import React, { useRef, useState, useEffect } from "react";
+import { createRoot } from "react-dom/client";
+import { motion, useScroll, useTransform } from "framer-motion";
+
+function ScrollHero() {
+  const containerRef = useRef(null);
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ["start start", "end end"]
+  });
+
+  // Calculate scales and opacities primarily during the first 50% of scroll.
+  const scale = useTransform(scrollYProgress, [0, 0.5], [1, 5]);
+  const width = useTransform(scrollYProgress, [0, 0.4], ["40%", "100%"]);
+  const height = useTransform(scrollYProgress, [0, 0.4], ["60vh", "100vh"]);
+  const borderRadius = useTransform(scrollYProgress, [0, 0.4], ["2rem", "0rem"]);
+  
+  const textOpacity = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
+  const textY = useTransform(scrollYProgress, [0, 0.2], [0, -50]);
+
+  // Content that fades in after expansion
+  const contentOpacity = useTransform(scrollYProgress, [0.5, 0.8], [0, 1]);
+  const contentY = useTransform(scrollYProgress, [0.5, 0.8], [50, 0]);
+
+  return (
+    <div ref={containerRef} className="relative w-full h-[300vh]">
+      
+      {/* Sticky Tracking Container */}
+      <div className="sticky top-0 h-screen w-full flex flex-col items-center justify-center overflow-hidden">
+        
+        {/* Intro text */}
+        <motion.div 
+          style={{ opacity: textOpacity, y: textY }}
+          className="absolute top-[10%] w-full text-center z-20 pointer-events-none"
+        >
+          <h1 className="text-5xl md:text-7xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-500">
+            Expand Your Horizon
+          </h1>
+          <p className="mt-4 text-gray-400 max-w-lg mx-auto text-lg">
+            Keep scrolling to experience the seamless multimedia expansion transition.
+          </p>
+        </motion.div>
+
+        {/* The Expandable Image/Video */}
+        <motion.div
+           style={{
+             width,
+             height,
+             borderRadius,
+           }}
+           className="relative z-10 overflow-hidden shadow-2xl flex items-center justify-center mt-20"
+        >
+           <motion.img 
+             src="https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=2070&auto=format&fit=crop"
+             alt="Tech background structure"
+             style={{ scale }}
+             className="w-full h-full object-cover"
+           />
+           <div className="absolute inset-0 bg-black/40 mix-blend-multiply"></div>
+           
+           {/* Fade in content on fully expanded screen */}
+           <motion.div 
+             style={{ opacity: contentOpacity, y: contentY }}
+             className="absolute inset-0 flex flex-col items-center justify-center z-30"
+           >
+             <h2 className="text-4xl md:text-6xl font-bold text-white tracking-widest uppercase">The Future</h2>
+             <button className="mt-8 px-8 py-4 bg-white text-black font-semibold rounded-full hover:scale-105 transition-transform">
+               Discover More
+             </button>
+           </motion.div>
+        </motion.div>
+      </div>
+      
+    </div>
+  );
+}
+
+const root = createRoot(document.getElementById("root"));
+root.render(<ScrollHero />);
+</script>
+</body>
+</html>

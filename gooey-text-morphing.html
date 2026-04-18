@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gooey Text Morphing - Interactive Suite</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {}
+            }
+        }
+    </script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800;900&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: black; color: white; margin: 0; overflow: hidden; }
+        
+        .interactive-nav {
+            position: fixed;
+            top: 1rem;
+            left: 1rem;
+            z-index: 50;
+            display: flex;
+            gap: 1rem;
+        }
+        .nav-btn {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            text-decoration: none;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+        .nav-btn:hover { background: rgba(255,255,255,0.2); }
+
+        .goo-container {
+            filter: url(#threshold) blur(0.6px);
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .text1, .text2 {
+            position: absolute;
+            width: 100%;
+            display: inline-block;
+            font-family: 'Inter', sans-serif;
+            font-weight: 900;
+            font-size: 8rem;
+            text-align: center;
+            user-select: none;
+        }
+
+    </style>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "react": "https://esm.sh/react@18.2.0",
+            "react/jsx-runtime": "https://esm.sh/react@18.2.0/jsx-runtime",
+            "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+            "framer-motion": "https://esm.sh/framer-motion@10.16.1?deps=react@18.2.0,react-dom@18.2.0"
+        }
+    }
+    </script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="antialiased w-full text-white bg-black">
+
+<div class="interactive-nav">
+    <a href="/" class="nav-btn">← Back to Hub</a>
+</div>
+
+<div id="root" class="w-full"></div>
+
+<!-- SVG Filter -->
+<svg id="filters" class="hidden">
+    <defs>
+        <filter id="threshold">
+            <!-- Blur the text -->
+            <feGaussianBlur in="SourceGraphic" stdDeviation="15" result="blur" />
+            <!-- Increase contrast using ColorMatrix -->
+            <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0
+                                                           0 1 0 0 0
+                                                           0 0 1 0 0
+                                                           0 0 0 255 -140" result="threshold" />
+            <feComposite in="SourceGraphic" in2="threshold" operator="over" />
+        </filter>
+    </defs>
+</svg>
+
+<script type="text/babel" data-type="module">
+import React, { useState, useEffect } from "react";
+import { createRoot } from "react-dom/client";
+import { motion, AnimatePresence } from "framer-motion";
+
+const texts = [
+  "Fluid",
+  "Morphing",
+  "Shapes",
+  "Design",
+  "Gooey"
+];
+
+function GooeyText() {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIndex((prev) => (prev + 1) % texts.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="w-full h-full relative" style={{ perspective: "1000px" }}>
+        
+        <div className="goo-container">
+            <AnimatePresence mode="wait">
+                <motion.span
+                    key={index}
+                    initial={{ opacity: 0, filter: "blur(20px)" }}
+                    animate={{ opacity: 1, filter: "blur(0px)" }}
+                    exit={{ opacity: 0, filter: "blur(20px)" }}
+                    transition={{
+                        opacity: { duration: 1.5, ease: "easeInOut" },
+                        filter: { duration: 1.5, ease: "easeInOut" }
+                    }}
+                    className="text1 text-white mix-blend-difference"
+                    style={{ zIndex: 10 }}
+                >
+                    {texts[index]}
+                </motion.span>
+                {/* Underlay glow */}
+                <motion.span
+                    key={`backdrop-${index}`}
+                    initial={{ opacity: 0, filter: "blur(20px)" }}
+                    animate={{ opacity: 0.6, filter: "blur(10px)" }}
+                    exit={{ opacity: 0, filter: "blur(20px)" }}
+                    transition={{
+                        opacity: { duration: 1.5, ease: "easeInOut" },
+                        filter: { duration: 1.5, ease: "easeInOut" }
+                    }}
+                    className="text2 text-blue-500"
+                    style={{ position: 'absolute', zIndex: 5 }}
+                >
+                    {texts[index]}
+                </motion.span>
+            </AnimatePresence>
+        </div>
+
+        {/* Ambient background styling */}
+        <div className="absolute inset-0 z-[-1] flex items-center justify-center opacity-30">
+            <div className="w-[800px] h-[800px] rounded-full bg-blue-900 filter blur-[150px] animate-pulse"></div>
+        </div>
+    </div>
+  );
+}
+
+const root = createRoot(document.getElementById("root"));
+root.render(<GooeyText />);
+</script>
+</body>
+</html>
